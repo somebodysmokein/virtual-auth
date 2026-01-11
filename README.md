@@ -16,6 +16,14 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+3. Start the webauthn server
+
+   ```bash
+   PORT=4000 RP_ORIGIN=https://bushless-amos-dendritically.ngrok-free.dev RP_ID=bushless-amos-dendritically.ngrok-free.dev npm start
+   ```
+
+   
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
@@ -48,3 +56,4 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
