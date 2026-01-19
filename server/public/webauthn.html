@@ -1,123 +1,205 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>WebAuthn Fallback</title>
-  <style>body{font-family:system-ui,Arial,sans-serif;padding:16px}</style>
-  <script>
-    // base64url helpers
-    function b64ToBuf(base64url) {
-      const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-      const pad = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-      const bin = atob(base64 + pad);
-      const arr = new Uint8Array(bin.length);
-      for (let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
-      return arr.buffer;
-    }
-    function bufToB64url(buf) {
-      const bytes = new Uint8Array(buf);
-      let str=''; for (let i=0;i<bytes.length;i++) str+=String.fromCharCode(bytes[i]);
-      return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WebAuthn Fallback</title>
+    <style>
+      body {
+        font-family: system-ui, Arial, sans-serif;
+        padding: 16px;
+      }
+    </style>
+    <script>
+      // base64url helpers
+      function b64ToBuf(base64url) {
+        const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/");
+        const pad =
+          base64.length % 4 === 0 ? "" : "=".repeat(4 - (base64.length % 4));
+        const bin = atob(base64 + pad);
+        const arr = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+        return arr.buffer;
+      }
+      function bufToB64url(buf) {
+        const bytes = new Uint8Array(buf);
+        let str = "";
+        for (let i = 0; i < bytes.length; i++)
+          str += String.fromCharCode(bytes[i]);
+        return btoa(str)
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      }
 
-    async function run() {
-      const params = new URLSearchParams(window.location.search);
-      const mode = params.get('mode') || 'authn';
-      const username = params.get('username') || 'demouser';
-      const redirect = params.get('redirect') || '';
-      const server = window.location.origin;
-      const out = (obj) => {
-        const q = encodeURIComponent(JSON.stringify(obj));
-        const schemeUrl = redirect ? `${redirect}?result=${q}` : null;
+      async function run() {
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get("mode") || "authn";
+        const username = params.get("username") || "demouser";
+        const redirect = params.get("redirect") || "";
+        const server = window.location.origin;
 
-        // Try automatic redirect first (may be blocked in some browsers / Expo Go)
+        // Diagnostic check for platform authenticator availability
+        let diagnostics = {
+          userAgent: navigator.userAgent,
+          hasPublicKeyCredential: !!window.PublicKeyCredential,
+          platformAuthAvailable: false,
+          error: null,
+        };
+
         try {
-          if (schemeUrl) window.location = schemeUrl
-        } catch (_) {}
-
-        // Also render the result JSON and provide a tappable link to return to the app
-        document.body.innerHTML = '<h2>Result</h2><pre id="result"></pre><p><a id="returnLink" href="#">Return to app</a></p>';
-        document.getElementById('result').innerText = JSON.stringify(obj, null, 2);
-        const returnLink = document.getElementById('returnLink')
-        if (schemeUrl) {
-          returnLink.setAttribute('href', schemeUrl)
-          returnLink.addEventListener('click', () => { window.location = schemeUrl })
-        } else {
-          returnLink.style.display = 'none'
+          if (window.PublicKeyCredential) {
+            diagnostics.platformAuthAvailable =
+              await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+            console.log(
+              "Platform authenticator available:",
+              diagnostics.platformAuthAvailable,
+            );
+          } else {
+            console.warn("PublicKeyCredential API not available");
+          }
+        } catch (e) {
+          diagnostics.error = e.message;
+          console.error("Error checking authenticator:", e);
         }
+
+        const out = (obj) => {
+          const q = encodeURIComponent(JSON.stringify(obj));
+          const schemeUrl = redirect ? `${redirect}?result=${q}` : null;
+
+          // Try automatic redirect first (may be blocked in some browsers / Expo Go)
+          try {
+            if (schemeUrl) window.location = schemeUrl;
+          } catch (_) {}
+
+          // Also render the result JSON and provide a tappable link to return to the app
+          document.body.innerHTML =
+            '<h2>Result</h2><pre id="result"></pre><p><a id="returnLink" href="#">Return to app</a></p>';
+          document.getElementById("result").innerText = JSON.stringify(
+            obj,
+            null,
+            2,
+          );
+          const returnLink = document.getElementById("returnLink");
+          if (schemeUrl) {
+            returnLink.setAttribute("href", schemeUrl);
+            returnLink.addEventListener("click", () => {
+              window.location = schemeUrl;
+            });
+          } else {
+            returnLink.style.display = "none";
+          }
           // POST the result back to the demo server so the app can poll for it
           try {
-            fetch(window.location.origin + '/webauthn/result', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+            fetch(window.location.origin + "/webauthn/result", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ username: username, result: obj }),
-            }).catch(() => {})
+            }).catch(() => {});
           } catch (e) {
             // ignore
           }
-      }
+        };
 
-      try {
-        if (mode === 'register') {
-          const optsRes = await fetch(server + '/webauthn/register/options', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, displayName: username})
+        // Early exit if platform authenticator is not available
+        if (!diagnostics.platformAuthAvailable) {
+          out({
+            error:
+              "NotReadableError: Platform authenticator not available. This BrowserStack device may not have a screen lock (PIN/pattern/biometric) configured, or the credential manager is not accessible in this browser context.",
+            diagnostics: diagnostics,
           });
-          const opts = await optsRes.json();
-          opts.publicKey.challenge = b64ToBuf(opts.publicKey.challenge);
-          opts.publicKey.user.id = b64ToBuf(opts.publicKey.user.id);
-          if (opts.publicKey.excludeCredentials) {
-            opts.publicKey.excludeCredentials = opts.publicKey.excludeCredentials.map(c => ({...c, id: b64ToBuf(c.id)}))
-          }
-          const cred = await navigator.credentials.create({publicKey: opts.publicKey});
-          const att = cred.response;
-          const toSend = {
-            id: cred.id,
-            rawId: bufToB64url(cred.rawId),
-            response: {
-              attestationObject: bufToB64url(att.attestationObject),
-              clientDataJSON: bufToB64url(att.clientDataJSON),
-            },
-            type: cred.type,
-          };
-          const verify = await fetch(server + '/webauthn/register/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, credential: toSend})});
-          const result = await verify.json();
-          out({mode:'register', result});
-        } else {
-          const optsRes = await fetch(server + '/webauthn/authn/options', {
-            method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username})
-          });
-          const opts = await optsRes.json();
-          opts.publicKey.challenge = b64ToBuf(opts.publicKey.challenge);
-          if (opts.publicKey.allowCredentials) {
-            opts.publicKey.allowCredentials = opts.publicKey.allowCredentials.map(c => ({...c, id: b64ToBuf(c.id)}))
-          }
-          const assertion = await navigator.credentials.get({publicKey: opts.publicKey});
-          const auth = assertion.response;
-          const toSend = {
-            id: assertion.id,
-            rawId: bufToB64url(assertion.rawId),
-            response: {
-              authenticatorData: bufToB64url(auth.authenticatorData),
-              clientDataJSON: bufToB64url(auth.clientDataJSON),
-              signature: bufToB64url(auth.signature),
-              userHandle: auth.userHandle ? bufToB64url(auth.userHandle) : null,
-            },
-            type: assertion.type,
-          };
-          const verify = await fetch(server + '/webauthn/authn/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, credential: toSend})});
-          const result = await verify.json();
-          out({mode:'authn', result});
+          return;
         }
-      } catch (err) {
-        out({error: String(err)})
+
+        try {
+          if (mode === "register") {
+            const optsRes = await fetch(server + "/webauthn/register/options", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, displayName: username }),
+            });
+            const opts = await optsRes.json();
+            opts.publicKey.challenge = b64ToBuf(opts.publicKey.challenge);
+            opts.publicKey.user.id = b64ToBuf(opts.publicKey.user.id);
+            if (opts.publicKey.excludeCredentials) {
+              opts.publicKey.excludeCredentials =
+                opts.publicKey.excludeCredentials.map((c) => ({
+                  ...c,
+                  id: b64ToBuf(c.id),
+                }));
+            }
+            const cred = await navigator.credentials.create({
+              publicKey: opts.publicKey,
+            });
+            const att = cred.response;
+            const toSend = {
+              id: cred.id,
+              rawId: bufToB64url(cred.rawId),
+              response: {
+                attestationObject: bufToB64url(att.attestationObject),
+                clientDataJSON: bufToB64url(att.clientDataJSON),
+              },
+              type: cred.type,
+            };
+            const verify = await fetch(server + "/webauthn/register/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, credential: toSend }),
+            });
+            const result = await verify.json();
+            out({ mode: "register", result });
+          } else {
+            const optsRes = await fetch(server + "/webauthn/authn/options", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username }),
+            });
+            const opts = await optsRes.json();
+            opts.publicKey.challenge = b64ToBuf(opts.publicKey.challenge);
+            if (opts.publicKey.allowCredentials) {
+              opts.publicKey.allowCredentials =
+                opts.publicKey.allowCredentials.map((c) => ({
+                  ...c,
+                  id: b64ToBuf(c.id),
+                }));
+            }
+            const assertion = await navigator.credentials.get({
+              publicKey: opts.publicKey,
+            });
+            const auth = assertion.response;
+            const toSend = {
+              id: assertion.id,
+              rawId: bufToB64url(assertion.rawId),
+              response: {
+                authenticatorData: bufToB64url(auth.authenticatorData),
+                clientDataJSON: bufToB64url(auth.clientDataJSON),
+                signature: bufToB64url(auth.signature),
+                userHandle: auth.userHandle
+                  ? bufToB64url(auth.userHandle)
+                  : null,
+              },
+              type: assertion.type,
+            };
+            const verify = await fetch(server + "/webauthn/authn/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username, credential: toSend }),
+            });
+            const result = await verify.json();
+            out({ mode: "authn", result });
+          }
+        } catch (err) {
+          out({
+            error: String(err),
+            diagnostics: diagnostics,
+          });
+        }
       }
-    }
-    window.addEventListener('load', run);
-  </script>
-</head>
-<body>
-  <h1>WebAuthn fallback</h1>
-  <p>Running WebAuthn flow...</p>
-</body>
+      window.addEventListener("load", run);
+    </script>
+  </head>
+  <body>
+    <h1>WebAuthn fallback</h1>
+    <p>Running WebAuthn flow...</p>
+  </body>
 </html>
