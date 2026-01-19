@@ -1,14 +1,8 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { ExternalLink } from '@/components/external-link';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import YubiKeyAuth from '@/components/yubi-key-auth';
-import { Fonts } from '@/constants/theme';
 
 export default function TabTwoScreen() {
   return (
@@ -22,7 +16,7 @@ export default function TabTwoScreen() {
           style={styles.headerImage}
         />
       }>
-      <ThemedView style={styles.titleContainer}>
+      {/* <ThemedView style={styles.titleContainer}>
         <ThemedText
           type="title"
           style={{
@@ -94,22 +88,22 @@ export default function TabTwoScreen() {
             </ThemedText>
           ),
         })}
-      </Collapsible>
-      <Collapsible title="Register YubiKey">
+      </Collapsible> */}
+      {/* <Collapsible title="Register YubiKey">
         <ThemedText>
           Register a hardware YubiKey for a username. Use this first to create a credential for your account.
-        </ThemedText>
+        </ThemedText> */}
         {/* <YubiKeyAuth requireRegistration={true} serverUrl="http://localhost:4000" /> */}
-        <YubiKeyAuth requireRegistration={true} serverUrl="https://bushless-amos-dendritically.ngrok-free.dev" />
-      </Collapsible>
+        {/* <YubiKeyAuth requireRegistration={true} serverUrl="https://bushless-amos-dendritically.ngrok-free.dev" /> */}
+      {/* </Collapsible> */}
 
-      <Collapsible title="YubiKey MFA">
+      {/* <Collapsible title="YubiKey MFA">
         <ThemedText>
           Use a hardware YubiKey for MFA via WebAuthn. Enter username and password below.
-        </ThemedText>
-        {/* <YubiKeyAuth requireRegistration={false} serverUrl="http://localhost:4000" /> */}
+        </ThemedText> */}
+        {/* <YubiKeyAuth requireRegistration={false} serverUrl="http://localhost:8000" /> */}
         <YubiKeyAuth requireRegistration={false} serverUrl="https://bushless-amos-dendritically.ngrok-free.dev" />
-      </Collapsible>
+      {/*</Collapsible> */}
     </ParallaxScrollView>
   );
 }

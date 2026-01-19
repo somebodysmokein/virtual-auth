@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.venky.webhook.coinbasevirtualauth"
     },
     "web": {
       "output": "static",
@@ -50,6 +51,12 @@
         "projectId": "9fbe56e5-0c4e-4ad4-a174-5b950c2b73b1"
       }
     },
-    "owner": "venky.webhook"
+    "owner": "venky.webhook",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/9fbe56e5-0c4e-4ad4-a174-5b950c2b73b1"
+    }
   }
 }
